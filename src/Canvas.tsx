@@ -32,6 +32,7 @@ export function Canvas({ eventSource, worker, fallback, style, className, id, ..
     if (!worker) return
 
     const canvas = canvasRef.current
+    const initWorker = () => {}
     try {
       if (!hasTransferredToOffscreen.current) {
         const offscreen = canvasRef.current.transferControlToOffscreen()
@@ -123,9 +124,36 @@ export function Canvas({ eventSource, worker, fallback, style, className, id, ..
       })
     }
 
+    const handleVisibleChange = () => {
+      if (document.hidden) {
+        worker.terminate()
+        hasTransferredToOffscreen.current = false
+      } else {
+        const offscreen = canvasRef.current.transferControlToOffscreen()
+        hasTransferredToOffscreen.current = true
+        worker.postMessage(
+          {
+            type: 'init',
+            payload: {
+              props,
+              drawingSurface: offscreen,
+              width: canvas.clientWidth,
+              height: canvas.clientHeight,
+              top: canvas.offsetTop,
+              left: canvas.offsetLeft,
+              pixelRatio: window.devicePixelRatio,
+            },
+          },
+          [offscreen]
+        )
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibleChange)
     window.addEventListener('resize', handleResize)
     return () => {
       window.removeEventListener('resize', handleResize)
+      document.removeEventListener('visibilitychange', handleVisibleChange)
     }
   }, [worker])
 
